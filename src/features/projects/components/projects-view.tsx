@@ -54,7 +54,7 @@ export const ProjectsView = () => {
             <div className="flex items-center gap-2 w-full group/logo">
               <img
                 src="/logo.svg"
-                alt="SpiderIDE"
+                alt="Hexsmith"
                 className="size-[32px] md:size-[46]"
               />
               <h1
@@ -63,7 +63,7 @@ export const ProjectsView = () => {
                   "text-4xl md:text-5xl font-semibold"
                 )}
               >
-                SpiderIDE
+                Hexsmith
               </h1>
             </div>
           </div>
