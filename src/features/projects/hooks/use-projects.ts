@@ -42,17 +42,17 @@ export const useCreateProject = () => {
   );
 };
 
-export const useRenameProject = (projectId: Id<"projects">) => {
+export const useRenameProject = () => {
   return useMutation(api.projects.rename).withOptimisticUpdate(
     (localStore, args) => {
       const existingProject = localStore.getQuery(api.projects.getById, {
-        id: projectId,
+        id: args.id,
       });
 
       if (existingProject !== undefined && existingProject !== null) {
         localStore.setQuery(
           api.projects.getById,
-          { id: projectId },
+          { id: args.id },
           {
             ...existingProject,
             name: args.name,
@@ -68,7 +68,7 @@ export const useRenameProject = (projectId: Id<"projects">) => {
           api.projects.get,
           {},
           existingProjects.map((project) => {
-            if (project._id === projectId) {
+            if (project._id === args.id) {
               return {
                 ...project,
                 name: args.name,
