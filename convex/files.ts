@@ -224,7 +224,7 @@ export const renameFile = mutation({
     const existing = sibilings.find(
       (sibling) =>
         sibling.name === args.name &&
-        sibling.type === "file" &&
+        sibling.type === file.type &&
         sibling._id !== args.id
     );
 
