@@ -6,7 +6,7 @@ import { useFile } from "@/features/projects/hooks/use-files";
 import Image from "next/image";
 import { CodeEditor } from "./code-editor";
 import { useUpdateFile } from "@/features/projects/hooks/use-files";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 const DEBOUNCE_MS = 1500;
 
@@ -18,6 +18,15 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
 
   const isActiveFileBinary = activeFile && activeFile.storageId;
   const isActiveFileText = activeFile && !activeFile.storageId;
+
+  // Clean-up pending debounced updates on unmount or file change
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [activeTabId]);
 
   return (
     <div className="h-full flex flex-col">
