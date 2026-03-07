@@ -14,10 +14,14 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const { userId, has } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!has({ plan: "pro" })) {
+    return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
   }
 
   const internalKey = process.env.HEXSMITH_CONVEX_INTERNAL_KEY;
