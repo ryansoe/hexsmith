@@ -585,6 +585,75 @@ export const createProject = mutation({
   },
 });
 
+export const checkAndIncrementUsage = mutation({
+  args: {
+    internalKey: v.string(),
+    userId: v.string(),
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const now = new Date();
+    const periodStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+    const record = await ctx.db
+      .query("usage")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!record) {
+      await ctx.db.insert("usage", {
+        userId: args.userId,
+        messageCount: 1,
+        periodStart,
+      });
+      return { allowed: true, count: 1 };
+    }
+
+    // New month — reset
+    if (record.periodStart < periodStart) {
+      await ctx.db.patch(record._id, { messageCount: 1, periodStart });
+      return { allowed: true, count: 1 };
+    }
+
+    // Over limit
+    if (record.messageCount >= args.limit) {
+      return { allowed: false, count: record.messageCount, limit: args.limit };
+    }
+
+    // Increment
+    await ctx.db.patch(record._id, { messageCount: record.messageCount + 1 });
+    return { allowed: true, count: record.messageCount + 1 };
+  },
+});
+
+export const getUserUsage = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const userId = identity.subject;
+    const record = await ctx.db
+      .query("usage")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!record) return { messageCount: 0, periodStart: Date.now() };
+
+    const now = new Date();
+    const periodStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+    // If record is from a prior month, return 0
+    if (record.periodStart < periodStart) {
+      return { messageCount: 0, periodStart };
+    }
+
+    return { messageCount: record.messageCount, periodStart: record.periodStart };
+  },
+});
+
 export const createProjectWithConversation = mutation({
   args: {
     internalKey: v.string(),

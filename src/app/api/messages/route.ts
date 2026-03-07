@@ -20,9 +20,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!has({ plan: "pro" })) {
-    return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
-  }
+  const FREE_MESSAGE_LIMIT = 10;
+  const hasPro = has({ plan: "pro" });
 
   const internalKey = process.env.HEXSMITH_CONVEX_INTERNAL_KEY;
 
@@ -35,6 +34,20 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const { conversationId, message } = requestSchema.parse(body);
+
+  if (!hasPro) {
+    const usage = await convex.mutation(api.system.checkAndIncrementUsage, {
+      internalKey,
+      userId,
+      limit: FREE_MESSAGE_LIMIT,
+    });
+    if (!usage.allowed) {
+      return NextResponse.json(
+        { error: "Free message limit reached", count: usage.count, limit: FREE_MESSAGE_LIMIT },
+        { status: 429 }
+      );
+    }
+  }
 
   // Call convex mutation, query
   const conversation = await convex.query(api.system.getConversationById, {

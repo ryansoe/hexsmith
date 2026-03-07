@@ -64,4 +64,10 @@ export default defineSchema({
   })
     .index("by_conversation", ["conversationId"])
     .index("by_project_status", ["projectId", "status"]),
+
+  usage: defineTable({
+    userId: v.string(),
+    messageCount: v.number(),
+    periodStart: v.number(), // Unix ms timestamp for start of current month
+  }).index("by_userId", ["userId"]),
 });
