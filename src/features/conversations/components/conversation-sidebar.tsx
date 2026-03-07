@@ -1,6 +1,8 @@
-import ky from "ky";
+import ky, { HTTPError } from "ky";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { CopyIcon, HistoryIcon, LoaderIcon, PlusIcon } from "lucide-react";
 
 import {
@@ -32,6 +34,7 @@ import {
   useCreateConversation,
   useMessages,
 } from "../hooks/use-conversations";
+import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
@@ -43,6 +46,8 @@ interface ConversationSidebarProps {
 export const ConversationSidebar = ({
   projectId,
 }: ConversationSidebarProps) => {
+  const FREE_MESSAGE_LIMIT = 10;
+
   const [input, setInput] = useState("");
   const [selectedConversationId, setSelectedConversationId] =
     useState<Id<"conversations"> | null>(null);
@@ -50,6 +55,13 @@ export const ConversationSidebar = ({
     pastConversationsOpen,
     setPastConversationsOpen
   ] = useState(false);
+
+  const { has } = useAuth();
+  const { openUserProfile } = useClerk();
+  const hasPro = has ? has({ plan: "pro" }) : false;
+  const usage = useQuery(api.system.getUserUsage);
+  const messageCount = usage?.messageCount ?? 0;
+  const atLimit = !hasPro && messageCount >= FREE_MESSAGE_LIMIT;
 
   const createConversation = useCreateConversation();
   const conversations = useConversations(projectId);
@@ -114,8 +126,17 @@ export const ConversationSidebar = ({
           message: message.text,
         },
       });
-    } catch {
-      toast.error("Message failed to send");
+    } catch (error) {
+      if (error instanceof HTTPError && error.response.status === 429) {
+        toast.error("You've used all 10 free messages this month.", {
+          action: {
+            label: "Upgrade to Pro",
+            onClick: () => openUserProfile(),
+          },
+        });
+      } else {
+        toast.error("Message failed to send");
+      }
     }
 
     setInput("");
@@ -185,19 +206,36 @@ export const ConversationSidebar = ({
         <ConversationScrollButton />
       </Conversation>
       <div className="p-3">
+        {!hasPro && usage !== undefined && (
+          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            {atLimit ? (
+              <span className="text-destructive">
+                Message limit reached ({FREE_MESSAGE_LIMIT}/{FREE_MESSAGE_LIMIT})
+              </span>
+            ) : (
+              <span>{FREE_MESSAGE_LIMIT - messageCount} messages left this month</span>
+            )}
+            <button
+              className="underline hover:text-foreground transition-colors"
+              onClick={() => openUserProfile()}
+            >
+              Upgrade →
+            </button>
+          </div>
+        )}
         <PromptInput onSubmit={handleSubmit} className="mt-2">
           <PromptInputBody>
             <PromptInputTextarea
               placeholder="Ask Hexsmith anything..."
               onChange={(e) => setInput(e.target.value)}
               value={input}
-              disabled={isProcessing}
+              disabled={isProcessing || atLimit}
             />
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools />
             <PromptInputSubmit
-              disabled={isProcessing ? false : !input}
+              disabled={atLimit || (isProcessing ? false : !input)}
               status={isProcessing ? "streaming" : undefined}
             />
           </PromptInputFooter>
